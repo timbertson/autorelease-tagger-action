@@ -11,7 +11,7 @@ function sh() {
 	if (result.status != 0) {
 		throw new Error("Command failed: " + args.join(' '))
 	}
-	return result.stdout.trim('\n')
+	return result.stdout.trim()
 }
 
 function renderVersion(v) {
@@ -107,11 +107,11 @@ function parseBumpAlias(alias) {
 function parseCommitLines(opts, commitLines) {
 	let alwaysRelease = opts.releaseTrigger == 'always'
 	function parse(label) {
-		let withoutRelease = label.replace(/ release$/, "")
+		let withoutRelease = label.replace(/-release$/, "")
 		if (bumpAliases.includes(withoutRelease)) {
 			return {
 				bump: parseBumpAlias(withoutRelease),
-				release: (withoutRelease != label)
+				release: withoutRelease != label
 			}
 		} else {
 			return {
@@ -121,15 +121,16 @@ function parseCommitLines(opts, commitLines) {
 		}
 	}
 
-	let lines = commitLines.split("\n").filter((line) => line.length > 0)
-	if (lines.length == 0) {
+	let log = commitLines.trim()
+	if (log.length == 0) {
 		return { release: false, bump: null }
 	}
-	let labels = (lines
-		.map((line) => line.split(":"))
-		.filter((line) => line.length > 1)
-		.map((line) => parse(line[0]))
+	let tags = log.match(/(^| )#[^# ]+(:| |$)/gm) || []
+	let labels = (tags
+		.map((tag) => tag.trim().replace(/^#/, '').replace(/:$/, ''))
+		.map(parse)
 	)
+	// console.log(JSON.stringify(log) + ' => ' + JSON.stringify(labels))
 
 	let doRelease = Boolean(opts.releaseTrigger == 'always' || labels.find((desc) => desc.release))
 	let bumps = labels.map((d) => d.bump).filter((x) => x != null).sort((a,b) => a - b)
@@ -254,17 +255,20 @@ exports.test = function() {
 		assertEq(parseCommitLines(opts, lines.join("\n")), expected)
 	}
 	assertParseCommitLines([], { release: false, bump: null })
-	assertParseCommitLines(["major: thing"], { release: true, bump: 0 })
-	assertParseCommitLines(["minor: thing"], { release: true, bump: 1 })
-	assertParseCommitLines(["patch: thing"], { release: true, bump: 2 })
-	assertParseCommitLines(["other: thing"], { release: true, bump: 1 })
-	assertParseCommitLines(["other: thing"], { release: false, bump: 1 }, manualRelease)
-	assertParseCommitLines(["release: thing"], { release: true, bump: 1 }, manualRelease)
-	assertParseCommitLines(["major release: thing"], { release: true, bump: 0 }, manualRelease)
+	assertParseCommitLines(["#major thing"], { release: true, bump: 0 })
+	assertParseCommitLines(["#minor"], { release: true, bump: 1 })
+	assertParseCommitLines(["some #patch"], { release: true, bump: 2 })
+	assertParseCommitLines(["#other: thing"], { release: true, bump: 1 })
+	assertParseCommitLines(["#other: thing"], { release: false, bump: 1 }, manualRelease)
+	assertParseCommitLines(["#release: thing"], { release: true, bump: 1 }, manualRelease)
+	assertParseCommitLines(["#major-release: thing"], { release: true, bump: 0 }, manualRelease)
 
-	assertParseCommitLines(["release: thing", "minor: woo"], { release: true, bump: 1 }, manualRelease)
-	assertParseCommitLines(["minor: woo", "major: woo"], { release: true, bump: 0 })
-	assertParseCommitLines(["minor: woo", "patch: woo"], { release: true, bump: 1 })
+	assertParseCommitLines(["#release", "#minor"], { release: true, bump: 1 }, manualRelease)
+	assertParseCommitLines(["#minor", "#major:"], { release: true, bump: 0 })
+	assertParseCommitLines(["#minor", "#patch"], { release: true, bump: 1 })
+	// only matches tags on their own, not in urls/etc
+	assertParseCommitLines(["http://foo#major"], { release: true, bump: 1 })
+	assertParseCommitLines(["#majobusiness"], { release: true, bump: 1 })
 
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
