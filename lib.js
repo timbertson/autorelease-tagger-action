@@ -36,12 +36,17 @@ function initialVersion(opts) {
 function nextVersion(opts, current, action) {
 	if (!action.release) return null
 	let bumpIdx = action.bump
-	if (bumpIdx < opts.maximumBump) {
-		throw new Error("Index "+bumpIdx+" is left of the maximum bump index ("+opts.maximumBump+")")
+	if (opts.minBump != null && bumpIdx > opts.minBump) {
+		// requested e.g. a patch bump, but minBump is minor. That's fine, just promote it
+		bumpIdx = minBump
+		console.log("Note: forcing "+renderBumpIndex(bumpIdx)+" because of minBump")
+	}
+	if (bumpIdx < opts.maxBump) {
+		throw new Error("Requested bump ("+renderBumpIndex(bumpIdx)+") is greater than maxBump ("+renderBumpIndex(opts.maxBump)+")")
 	}
 	let version = current.slice(0, bumpIdx)
 	if (current.length <= bumpIdx) {
-		throw new Error("Tried to bump index " + bumpIdx + " of version with only "+ current.length + " components")
+		throw new Error("Tried to bump component " + renderBumpIndex(bumpIdx) + " of version with only "+ current.length + " components")
 	}
 	version.push(current[bumpIdx]+1)
 	return extendTo(opts.numComponents, version)
@@ -82,11 +87,13 @@ function parseGitDescribe(output) {
 }
 
 function commitLinesSince(tag) {
-	// TODO
-	return sh("git log --format=format:'%s' ${current}..HEAD")
+	return sh('git', 'log', '--format=format:%s', current + '..HEAD')
 }
 
-let bumpAliases = ["major", "minor", "patch", "build"]
+let bumpAliases = ["major", "minor", "patch"]
+function renderBumpIndex(i) {
+	return bumpAliases[i] || "[index " + String(i) + "]"
+}
 
 function parseBumpAlias(alias) {
 	switch (alias) {
@@ -132,7 +139,7 @@ function parseCommitLines(opts, commitLines) {
 	}
 }
 
-function parseOpts(env) {
+let parseOpts = exports.parseOpts = function(env) {
 	function map(key, fn, dfl) {
 		if (env.hasOwnProperty(key)) {
 			return fn(env[key])
@@ -157,14 +164,16 @@ function parseOpts(env) {
 		numComponents: map('numComponents', (i) => parseInt(i), 3),
 		releaseTrigger: validate("releaseTrigger", "always", (x) => ["always", "commit"].includes(x)),
 		defaultBump: parseBumpAlias(orElse("defaultBump", "minor")),
-		maximumBump: parseBumpAlias(orElse("maximumBump", "major")),
+		maxBump: parseBumpAlias(orElse("maxBump", "major")),
+		minBump: map('minBump', parseBumpAlias, null),
 		doTag: validate("doTag", "true", (x) => ["true","false"].includes(x)) === "true",
 		doPush: validate("doPush", "true", (x) => ["true","false"].includes(x)) === "true",
 	}
 }
+parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush']
 
-function getNextVersion(opts) {
-	let describeOutput = sh("git describe --tags -match 'v*' --always --long HEAD")
+let getNextVersion = exports.getNextVersion = function(opts) {
+	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', 'HEAD')
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
 	if (current == null) {
@@ -177,23 +186,23 @@ function getNextVersion(opts) {
 	return nextVersion(current.version, action)
 }
 
-function applyVersion(opts, version) {
+let applyVersion = exports.applyVersion = function(opts, version) {
 	let tag = renderVersion(version)
-	console.log("Applying version "+ tag)
-	console.log("::set-output name=versionTag::"+tag)
 	if (opts.doTag) {
 		sh("git tag ${tag} HEAD")
 		if (opts.doPush) {
 			sh("git push tag ${tag}")
 		}
 	}
+	return tag
 }
 
 exports.main = function() {
 	let opts = parseOpts(process.env)
 	let nextVersion = getNextVersion(opts)
 	if (nextVersion != null) {
-		applyVersion(opts, nextVersion)
+		let versionTag = applyVersion(opts, nextVersion)
+		console.log("::set-output name=versionTag::"+versionTag)
 	} else {
 		console.log("No version release triggered")
 	}
@@ -260,14 +269,16 @@ exports.test = function() {
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 2 }), [1,2,4])
-	assertThrows(nextVersion, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump index 3 of version with only 3 components")
-	assertThrows(nextVersion, {maximumBump: 1}, [1,2,3], { release: true, bump: 0 }, "Index 0 is left of the maximum bump index (1)")
+	assertThrows(nextVersion, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump component [index 3] of version with only 3 components")
+	assertThrows(nextVersion, defaultOpts, [1,2], { release: true, bump: 2 }, "Tried to bump component patch of version with only 2 components")
+	assertThrows(nextVersion, {maxBump: 1}, [1,2,3], { release: true, bump: 0 }, "Requested bump (major) is greater than maxBump (minor)")
 
 	assertEq(parseOpts({}), {
 		numComponents:3,
 		releaseTrigger:"always",
 		defaultBump:1,
-		"maximumBump":0,
+		maxBump:0,
+		minBump:null,
 		doTag:true,
 		doPush:true
 	})
@@ -275,14 +286,16 @@ exports.test = function() {
 	assertEq(parseOpts({
 		releaseTrigger: 'commit',
 		defaultBump: 'major',
-		maximumBump: 'patch',
+		maxBump: 'patch',
+		minBump: 'minor',
 		doTag: 'true',
 		doPush: 'false',
 	}), {
 		numComponents: 3,
 		releaseTrigger: "commit",
 		defaultBump: 0,
-		maximumBump: 2,
+		maxBump: 2,
+		minBump: 1,
 		doTag: true,
 		doPush: false
 	})

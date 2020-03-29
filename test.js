@@ -1,1 +1,1 @@
-require('./index.js').test()
+require('./lib.js').test()

@@ -1,0 +1,22 @@
+name: 'Version Tag'
+description: 'Create version tags based on git tags and commits'
+inputs:
+  numComponents: { "description": 'TODO', "required": false }
+  releaseTrigger: { "description": 'TODO', "required": false }
+  defaultBump: { "description": 'TODO', "required": false }
+  maxBump: { "description": 'TODO', "required": false }
+  minBump: { "description": 'TODO', "required": false }
+  doTag: { "description": 'TODO', "required": false }
+  doPush: { "description": 'TODO', "required": false }
+
+outputs:
+  versionTag:
+    description: 'The new tag, only set if a tag is required'
+
+runs:
+  using: 'node12'
+  main: 'action.js'
+
+branding:
+  icon: 'git-merge'  
+  color: 'purple'
