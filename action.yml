@@ -1,4 +1,4 @@
-name: 'Version Tag'
+name: 'Autorelease tagger'
 description: 'Create version tags based on git tags and commits'
 inputs:
   numComponents: { "description": 'TODO', "required": false }
@@ -18,5 +18,5 @@ runs:
   main: 'action.js'
 
 branding:
-  icon: 'git-merge'  
-  color: 'purple'
+  icon: 'tag'
+  color: 'orange'

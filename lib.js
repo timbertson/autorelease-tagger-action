@@ -87,6 +87,7 @@ function parseGitDescribe(output) {
 }
 
 function commitLinesSince(tag) {
+	console.log(sh('git', 'fetch', '--unshallow'))
 	return sh('git', 'log', '--format=format:%s', current + '..HEAD')
 }
 
@@ -190,9 +191,9 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 let applyVersion = exports.applyVersion = function(opts, version) {
 	let tag = renderVersion(version)
 	if (opts.doTag) {
-		sh("git tag ${tag} HEAD")
+		sh('git', 'tag', tag, 'HEAD')
 		if (opts.doPush) {
-			sh("git push tag ${tag}")
+			sh('git', 'push', 'tag', tag)
 		}
 	}
 	return tag
