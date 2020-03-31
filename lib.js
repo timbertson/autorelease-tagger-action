@@ -88,7 +88,7 @@ function parseGitDescribe(output) {
 
 function commitLinesSince(tag) {
 	console.log(sh('git', 'fetch', '--unshallow'))
-	return sh('git', 'log', '--format=format:%s', tag + '..' + getBaseRef)
+	return sh('git', 'log', '--format=format:%s', tag + '..' + getBaseRef())
 }
 
 let bumpAliases = ["major", "minor", "patch"]
