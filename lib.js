@@ -30,7 +30,7 @@ function initialVersion(opts) {
 	return extendTo(opts.numComponents, [])
 }
 
-function nextVersion(opts, current, action) {
+function applyBump(opts, current, action) {
 	if (!action.release) return null
 	let bumpIdx = action.bump
 	if (opts.minBump != null && bumpIdx > opts.minBump) {
@@ -123,7 +123,7 @@ function parseCommitLines(opts, commitLines) {
 	if (commitLines.length == 0) {
 		return { release: false, bump: null }
 	}
-	let tags = commitLines.match(/(^| )#[^# ]+(:| |$)/gm) || []
+	let tags = commitLines.match(/(^| )#\S+(:| |$)/gm) || []
 	console.log("tags: " + JSON.stringify(tags))
 	let labels = (tags
 		.map((tag) => tag.trim().replace(/^#/, '').replace(/:$/, ''))
@@ -192,7 +192,7 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 		console.log("Current version: " + renderVersion(current.version) + " (from tag "+current.tag+")")
 	}
 	let action = parseCommitLines(opts, commitLinesSince(current.tag))
-	return nextVersion(current.version, action)
+	return applyBump(opts, current.version, action)
 }
 
 let applyVersion = exports.applyVersion = function(opts, version) {
@@ -277,14 +277,15 @@ exports.test = function() {
 	assertParseCommitLines(["#minor", "#patch"], { release: true, bump: 1 })
 	// only matches tags on their own, not in urls/etc
 	assertParseCommitLines(["http://foo#major"], { release: true, bump: 1 })
-	assertParseCommitLines(["#majobusiness"], { release: true, bump: 1 })
+	assertParseCommitLines(["#majorbusiness"], { release: true, bump: 1 })
+	assertParseCommitLines(['#ma','jor'], { release: true, bump: 1 })
 
-	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
-	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
-	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 2 }), [1,2,4])
-	assertThrows(nextVersion, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump component [index 3] but there are only 3 components")
-	assertEq(nextVersion({ numComponents: 4 }, [1,2], { release: true, bump: 3 }), [1,2,0,1])
-	assertThrows(nextVersion, {maxBump: 1}, [1,2,3], { release: true, bump: 0 }, "Requested bump (major) is greater than maxBump (minor)")
+	assertEq(applyBump(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
+	assertEq(applyBump(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
+	assertEq(applyBump(defaultOpts, [1,2,3], { release: true, bump: 2 }), [1,2,4])
+	assertThrows(applyBump, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump component [index 3] but there are only 3 components")
+	assertEq(applyBump({ numComponents: 4 }, [1,2], { release: true, bump: 3 }), [1,2,0,1])
+	assertThrows(applyBump, {maxBump: 1}, [1,2,3], { release: true, bump: 0 }, "Requested bump (major) is greater than maxBump (minor)")
 
 	assertEq(parseOpts({}), {
 		numComponents:3,
