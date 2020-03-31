@@ -120,16 +120,16 @@ function parseCommitLines(opts, commitLines) {
 		}
 	}
 
-	let log = commitLines.trim()
-	if (log.length == 0) {
+	if (commitLines.length == 0) {
 		return { release: false, bump: null }
 	}
-	let tags = log.match(/(^| )#[^# ]+(:| |$)/gm) || []
+	let tags = commitLines.match(/(^| )#[^# ]+(:| |$)/gm) || []
+	console.log("tags: " + JSON.stringify(tags))
 	let labels = (tags
 		.map((tag) => tag.trim().replace(/^#/, '').replace(/:$/, ''))
 		.map(parse)
 	)
-	// console.log(JSON.stringify(log) + ' => ' + JSON.stringify(labels))
+	// console.log(JSON.stringify(commitLines) + ' => ' + JSON.stringify(labels))
 
 	let doRelease = Boolean(opts.releaseTrigger == 'always' || labels.find((desc) => desc.release))
 	let bumps = labels.map((d) => d.bump).filter((x) => x != null).sort((a,b) => a - b)
