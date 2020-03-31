@@ -177,7 +177,8 @@ parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', '
 function getBaseRef() {
 	// if we're running on a PR, use the head ref (branch to be merged)
 	// instead of the HEAD (which is actually a merge of the PR against `master`)
-	return process.env['GITHUB_HEAD_REF'] || 'HEAD'
+	let prBranch = process.env['GITHUB_HEAD_REF']
+	return prBranch ? 'origin/'+prBranch : 'HEAD'
 }
 
 let getNextVersion = exports.getNextVersion = function(opts) {
