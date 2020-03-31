@@ -19,9 +19,6 @@ function renderVersion(v) {
 }
 
 function extendTo(length, array) {
-	if (array.length > length) {
-		throw new Error("input array is too long: " + JSON.stringify(array))
-	}
 	array = array.slice()
 	while(array.length < length) {
 		array.push(0)
@@ -44,10 +41,12 @@ function nextVersion(opts, current, action) {
 	if (bumpIdx < opts.maxBump) {
 		throw new Error("Requested bump ("+renderBumpIndex(bumpIdx)+") is greater than maxBump ("+renderBumpIndex(opts.maxBump)+")")
 	}
-	let version = current.slice(0, bumpIdx)
-	if (current.length <= bumpIdx) {
-		throw new Error("Tried to bump component " + renderBumpIndex(bumpIdx) + " of version with only "+ current.length + " components")
+
+	if (bumpIdx >= opts.numComponents) {
+		throw new Error("Tried to bump component " + renderBumpIndex(bumpIdx) + " but there are only "+ current.length + " components")
 	}
+	current = extendTo(opts.numComponents, current)
+	let version = current.slice(0, bumpIdx)
 	version.push(current[bumpIdx]+1)
 	return extendTo(opts.numComponents, version)
 }
@@ -70,7 +69,7 @@ function parseVersion(v) {
 }
 
 function parseGitDescribe(output) {
-	parts = output.trim().split('-')
+	parts = output.split('-')
 	if (parts.length == 1) {
 		// just a git commit
 		return null
@@ -160,6 +159,7 @@ let parseOpts = exports.parseOpts = function(env) {
 		}
 	}
 
+	let defaultDoPush = process.env['GITHUB_EVENT_NAME'] == 'pull_request' ? 'false' : 'true'
 
 	return {
 		numComponents: map('numComponents', (i) => parseInt(i), 3),
@@ -239,7 +239,7 @@ exports.test = function() {
 			assertEq(e.message, msg)
 		}
 		if (!threw) {
-			throw new Error("Function didn't fail")
+			throw new Error("Function didn't fail (expected: " + msg + ")")
 		}
 	}
 
@@ -282,8 +282,8 @@ exports.test = function() {
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
 	assertEq(nextVersion(defaultOpts, [1,2,3], { release: true, bump: 2 }), [1,2,4])
-	assertThrows(nextVersion, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump component [index 3] of version with only 3 components")
-	assertThrows(nextVersion, defaultOpts, [1,2], { release: true, bump: 2 }, "Tried to bump component patch of version with only 2 components")
+	assertThrows(nextVersion, defaultOpts, [1,2,3], { release: true, bump: 3 }, "Tried to bump component [index 3] but there are only 3 components")
+	assertEq(nextVersion({ numComponents: 4 }, [1,2], { release: true, bump: 3 }), [1,2,0,1])
 	assertThrows(nextVersion, {maxBump: 1}, [1,2,3], { release: true, bump: 0 }, "Requested bump (major) is greater than maxBump (minor)")
 
 	assertEq(parseOpts({}), {
