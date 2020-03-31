@@ -87,7 +87,7 @@ function parseGitDescribe(output) {
 }
 
 function commitLinesSince(tag) {
-	console.log(sh('git', 'fetch', '--unshallow'))
+	console.log(sh('git', 'fetch', '--unshallow', '--tags'))
 	return sh('git', 'log', '--format=format:%s', tag + '..' + getBaseRef())
 }
 
