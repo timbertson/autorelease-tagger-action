@@ -1,7 +1,7 @@
 const core = require('@actions/core')
 const lib = require('./lib.js')
 
-exports.main = function() {
+function main() {
 	try {
 		let env = {}
 		lib.parseOpts.keys.forEach(function(key) {
@@ -11,16 +11,18 @@ exports.main = function() {
 			}
 		})
 		let opts = lib.parseOpts(env)
+		core.info("Parsed options: " + JSON.stringify(opts))
 		let nextVersion = lib.getNextVersion(opts)
 		if (nextVersion != null) {
-			let versionTag = lib.applyVersion(opts, nextVersion)
-			core.info("Applying version "+ tag)
-			core.setOutput('versionTag', versionTag)
+			let tag = lib.applyVersion(opts, nextVersion)
+			core.setOutput('tag', tag)
 		} else {
 			core.info("No version release triggered")
 		}
 	} catch(e) {
+		console.log(e)
 		core.setFailed(e.message)
 	}
 }
 
+main()

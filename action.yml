@@ -10,7 +10,7 @@ inputs:
   doPush: { "description": 'TODO', "required": false }
 
 outputs:
-  versionTag:
+  tag:
     description: 'The new tag, only set if a tag is required'
 
 runs:

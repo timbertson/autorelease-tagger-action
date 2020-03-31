@@ -88,7 +88,7 @@ function parseGitDescribe(output) {
 
 function commitLinesSince(tag) {
 	console.log(sh('git', 'fetch', '--unshallow'))
-	return sh('git', 'log', '--format=format:%s', current + '..HEAD')
+	return sh('git', 'log', '--format=format:%s', tag + '..' + getBaseRef)
 }
 
 let bumpAliases = ["major", "minor", "patch"]
@@ -174,8 +174,14 @@ let parseOpts = exports.parseOpts = function(env) {
 }
 parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush']
 
+function getBaseRef() {
+	// if we're running on a PR, use the head ref (branch to be merged)
+	// instead of the HEAD (which is actually a merge of the PR against `master`)
+	return process.env['GITHUB_HEAD_REF'] || 'HEAD'
+}
+
 let getNextVersion = exports.getNextVersion = function(opts) {
-	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', 'HEAD')
+	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', getBaseRef)
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
 	if (current == null) {
@@ -190,6 +196,7 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 
 let applyVersion = exports.applyVersion = function(opts, version) {
 	let tag = renderVersion(version)
+	console.log("Applying version "+ tag)
 	if (opts.doTag) {
 		sh('git', 'tag', tag, 'HEAD')
 		if (opts.doPush) {
