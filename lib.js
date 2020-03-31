@@ -191,7 +191,7 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 	} else {
 		console.log("Current version: " + renderVersion(current.version) + " (from tag "+current.tag+")")
 	}
-	let action = parseCommitLines(commitLinesSince(current.tag))
+	let action = parseCommitLines(opts, commitLinesSince(current.tag))
 	return nextVersion(current.version, action)
 }
 
