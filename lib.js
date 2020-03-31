@@ -181,7 +181,7 @@ function getBaseRef() {
 }
 
 let getNextVersion = exports.getNextVersion = function(opts) {
-	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', getBaseRef)
+	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', getBaseRef())
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
 	if (current == null) {
