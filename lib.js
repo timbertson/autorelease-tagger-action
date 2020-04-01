@@ -1,4 +1,5 @@
 let child_process = require('child_process')
+let fs = require('fs')
 
 function sh() {
 	let args = Array.prototype.slice.call(arguments)
@@ -181,7 +182,11 @@ function getBaseRef() {
 }
 
 let getNextVersion = exports.getNextVersion = function(opts) {
-	sh('git', 'fetch', '--unshallow', '--tags')
+	let fetchCmd = ['git', 'fetch', '--tags']
+	if (fs.existsSync('.git/shallow')) {
+		fetchCmd.push('--unshallow')
+	}
+	sh.apply(null, fetchCmd)
 	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', getBaseRef())
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
