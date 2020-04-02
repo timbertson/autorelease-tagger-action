@@ -125,7 +125,7 @@ function parseCommitLines(opts, commitLines) {
 		return { release: false, bump: null }
 	}
 	let tags = commitLines.match(/(^| )#\S+(:| |$)/gm) || []
-	console.log("tags: " + JSON.stringify(tags))
+	// console.log("tags: " + JSON.stringify(tags))
 	let labels = (tags
 		.map((tag) => tag.trim().replace(/^#/, '').replace(/:$/, ''))
 		.map(parse)
