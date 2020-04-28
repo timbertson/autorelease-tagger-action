@@ -15,8 +15,12 @@ function sh() {
 	return result.stdout.trim()
 }
 
-function renderVersion(v) {
-	return "v" + v.join('.')
+let renderVersion = exports.renderVersion = function renderVersion(v) {
+	return v.join('.')
+}
+
+function tagOfVersion(v) {
+	return "v" + renderVersion(v)
 }
 
 function extendTo(length, array) {
@@ -201,7 +205,7 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 }
 
 let applyVersion = exports.applyVersion = function(opts, version) {
-	let tag = renderVersion(version)
+	let tag = tagOfVersion(version)
 	console.log("Applying version "+ tag)
 	if (opts.doTag) {
 		sh('git', 'tag', tag, 'HEAD')
@@ -216,8 +220,7 @@ exports.main = function() {
 	let opts = parseOpts(process.env)
 	let nextVersion = getNextVersion(opts)
 	if (nextVersion != null) {
-		let versionTag = applyVersion(opts, nextVersion)
-		console.log("::set-output name=versionTag::"+versionTag)
+		applyVersion(opts, nextVersion)
 	} else {
 		console.log("No version release triggered")
 	}
