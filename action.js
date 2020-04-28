@@ -16,6 +16,7 @@ function main() {
 		if (nextVersion != null) {
 			let tag = lib.applyVersion(opts, nextVersion)
 			core.setOutput('tag', tag)
+			core.setOutput('version', nextVersion)
 		} else {
 			core.info("No version release triggered")
 		}
