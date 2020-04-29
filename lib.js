@@ -210,7 +210,7 @@ let applyVersion = exports.applyVersion = function(opts, version) {
 	if (opts.doTag) {
 		sh('git', 'tag', tag, 'HEAD')
 		if (opts.doPush) {
-			sh('git', 'push', 'tag', tag)
+			sh('git', 'push', 'origin', 'tag', tag)
 		}
 	}
 	return tag
