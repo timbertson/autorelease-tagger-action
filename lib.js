@@ -191,7 +191,7 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 		fetchCmd.push('--unshallow')
 	}
 	sh.apply(null, fetchCmd)
-	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', getBaseRef())
+	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', 'HEAD')
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
 	if (current == null) {
