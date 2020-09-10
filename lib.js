@@ -128,10 +128,10 @@ function parseCommitLines(opts, commitLines) {
 	if (commitLines.length == 0) {
 		return { release: false, bump: null }
 	}
-	let tags = commitLines.match(/(^| )#\S+(:| |$)/gm) || []
+	let tags = commitLines.match(/\[\S+\]/gm) || []
 	// console.log("tags: " + JSON.stringify(tags))
 	let labels = (tags
-		.map((tag) => tag.trim().replace(/^#/, '').replace(/:$/, ''))
+		.map((tag) => tag.trim().replace(/\[|\]/g, ''))
 		.map(parse)
 	)
 	// console.log(JSON.stringify(commitLines) + ' => ' + JSON.stringify(labels))
@@ -227,11 +227,13 @@ exports.main = function() {
 }
 
 exports.test = function() {
-	function assertEq(a,b) {
+	function assertEq(a,b, ctx) {
 		let aDesc = JSON.stringify(a)
 		let bDesc = JSON.stringify(b)
 		if(aDesc !== bDesc) {
-			throw new Error("Expected "+ bDesc + ", got "+ aDesc)
+			let desc = "Expected "+ bDesc + ", got "+ aDesc
+			if (ctx) desc += " ("+ctx+")"
+			throw new Error(desc)
 		}
 	}
 
@@ -269,24 +271,21 @@ exports.test = function() {
 	let manualRelease = { releaseTrigger: 'commit', defaultBump: 1 }
 	function assertParseCommitLines(lines, expected, opts) {
 		if (!opts) { opts = defaultOpts }
-		assertEq(parseCommitLines(opts, lines.join("\n")), expected)
+		assertEq(parseCommitLines(opts, lines.join("\n")), expected, "parsing lines: " + JSON.stringify(lines))
 	}
 	assertParseCommitLines([], { release: false, bump: null })
-	assertParseCommitLines(["#major thing"], { release: true, bump: 0 })
-	assertParseCommitLines(["#minor"], { release: true, bump: 1 })
-	assertParseCommitLines(["some #patch"], { release: true, bump: 2 })
-	assertParseCommitLines(["#other: thing"], { release: true, bump: 1 })
-	assertParseCommitLines(["#other: thing"], { release: false, bump: 1 }, manualRelease)
-	assertParseCommitLines(["#release: thing"], { release: true, bump: 1 }, manualRelease)
-	assertParseCommitLines(["#major-release: thing"], { release: true, bump: 0 }, manualRelease)
+	assertParseCommitLines(["[major] thing"], { release: true, bump: 0 })
+	assertParseCommitLines(["[minor]"], { release: true, bump: 1 })
+	assertParseCommitLines(["some [patch]"], { release: true, bump: 2 })
+	assertParseCommitLines(["[other]: thing"], { release: true, bump: 1 })
+	assertParseCommitLines(["[other]: thing"], { release: false, bump: 1 }, manualRelease)
+	assertParseCommitLines(["[release]: thing"], { release: true, bump: 1 }, manualRelease)
+	assertParseCommitLines(["[major-release]: thing"], { release: true, bump: 0 }, manualRelease)
 
-	assertParseCommitLines(["#release", "#minor"], { release: true, bump: 1 }, manualRelease)
-	assertParseCommitLines(["#minor", "#major:"], { release: true, bump: 0 })
-	assertParseCommitLines(["#minor", "#patch"], { release: true, bump: 1 })
-	// only matches tags on their own, not in urls/etc
-	assertParseCommitLines(["http://foo#major"], { release: true, bump: 1 })
-	assertParseCommitLines(["#majorbusiness"], { release: true, bump: 1 })
-	assertParseCommitLines(['#ma','jor'], { release: true, bump: 1 })
+	assertParseCommitLines(["[release]", "[minor]"], { release: true, bump: 1 }, manualRelease)
+	assertParseCommitLines(["[minor]", "[major]:"], { release: true, bump: 0 })
+	assertParseCommitLines(["[minor]", "[patch]"], { release: true, bump: 1 })
+	assertParseCommitLines(['[ma','jor]'], { release: true, bump: 1 })
 
 	assertEq(applyBump(defaultOpts, [1,2,3], { release: true, bump: 0 }), [2,0,0])
 	assertEq(applyBump(defaultOpts, [1,2,3], { release: true, bump: 1 }), [1,3,0])
