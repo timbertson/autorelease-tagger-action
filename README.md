@@ -30,9 +30,13 @@ Examples include:
 `v1.x.0`: allow only minor increments
 `vx.x.x`: equivalent to `numComponents: 3`
 
-For convenience, this string is parsed quite generously:
- - any leading `refs/heads/` is stripped off.
- - if the value does not begin with a version component, it will be ignored
+The handling of `versionTemplate` is intentionally complex, to "do the right thing" for common use cases without requiring the use of unweildy workflow expressions:
+
+ - any leading `refs/heads/` is stripped off
+ - if the value does not begin with a version component (optional leading `v`, then at least one digit, then `.`), it will be ignored
+ - if you supply both `versionTemplate` and `numComponents`, the max() of the two values is taken (so you can have a `v2.x` branch but still use 3 components)
+ - if you supply both `versionTemplate` and `minBump`, `minBump` is ignored (typically `minBump` is used only on the main branch, to use on a version branch you will need to name it e.g. `v2.x.0`)
+ - if you supply both `versionTemplate` and `maxBump`, `maxBump` is ignored (typically `maxBump` is used on a version branch to prevent collisions with the main branch)
 
 This lets you pass in the branch name and have it work for both `master` and appropriately-named version branches, like so:
 
@@ -40,12 +44,12 @@ This lets you pass in the branch name and have it work for both `master` and app
 - uses: timbertson/autorelease-tagger-action@v1
   with:
     numComponents: 3
+    minBump: minor
     versionTemplate: ${{ (github.event_name == 'pull_request' && github.base_ref) || github.ref }}
 ```
 
 That will use the `base_ref` (destination branch) for a pull request, and the current branch for a push event.
-
-If you pass `numComponents` / `minBump` / `maxBump` as well as `versionTemplate`, they must be consistent (this is useful in the above case, where you don't always have a real versionTemplate)
+For the main branch it acts like a versionTemplate of `vx.x.0` thanks to the default `numComponents` and `minBump`.
 
 # Big thanks
 

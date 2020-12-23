@@ -144,8 +144,8 @@ let parseVersionTemplate = function(v) {
 		}
 	})
 	if (maxBump == null) {
-		// we didn't see any `.x` components
-		throw err
+		// we didn't see any `.x` components, e.g it's a plain `v1.2`. This is only useful if you explicitly set `numComponents` to 3, which ends up acting like `v1.2.x`
+		maxBump = numComponents
 	}
 	return { numComponents, maxBump, minBump, pinComponents }
 }
@@ -248,22 +248,33 @@ let parseOpts = exports.parseOpts = function(env) {
 		}
 	}
 
-	let versionTemplateOpts = map('versionTemplate', parseVersionTemplate, null)
-
-	function conflict(keyA, keyB) {
-		return new Error(keyA + " (" + env[keyA] + ") conflicts with "+keyB+" ("+env[keyB]+")")
+	function preferVersionTemplate(key, { supplied, fromVersion }) {
+		console.log("Using `"+key+"` derived from `versionTemplate` ("+fromVersion+") over explicit parameter ("+supplied+")")
+		return fromVersion
 	}
 
-	function templateOrMap(key, fn, dfl) {
+	function useMaxOfSettings(key, { supplied, fromVersion }) {
+		let result = Math.max(supplied, fromVersion)
+		console.log("Using maximum from `"+key+"` ("+supplied+") and `versionTemplate` ("+fromVersion+")")
+		return result
+	}
+
+	let versionTemplateOpts = map('versionTemplate', parseVersionTemplate, null)
+	// console.log('opts', env, versionTemplateOpts)
+
+	function mergeFromVersionTemplate(key, fn, merge, dfl) {
+		if (versionTemplateOpts === null) {
+			return map(key, fn, dfl)
+		}
 		let supplied = map(key, fn, null)
-		let fromVersion = versionTemplateOpts ? versionTemplateOpts[key] : null;
-		let defined = [supplied, fromVersion].filter((x) => x !== null)
-		if (defined.length > 1 && supplied !== fromVersion) {
-			throw conflict(key, 'versionTemplate')
-		} else if (defined.length == 0) {
-			return dfl
+		let fromVersion = versionTemplateOpts[key]
+		if (supplied === null) {
+			return fromVersion
+		}
+		if (supplied === fromVersion) {
+			return supplied
 		} else {
-			return defined[0]
+			return merge(key, { supplied, fromVersion })
 		}
 	}
 
@@ -273,10 +284,10 @@ let parseOpts = exports.parseOpts = function(env) {
 	let opts = {
 		releaseTrigger: validate("releaseTrigger", "always", (x) => ["always", "commit"].includes(x)),
 
-		numComponents: templateOrMap('numComponents', (i) => parseInt(i), 3),
-		minBump: templateOrMap('minBump', parseBumpAlias, null),
-		maxBump: templateOrMap("maxBump", parseBumpAlias, 0),
-		pinComponents: templateOrMap('pinComponents', identity, []),
+		numComponents: mergeFromVersionTemplate('numComponents', (i) => parseInt(i), useMaxOfSettings, 3),
+		minBump: mergeFromVersionTemplate('minBump', parseBumpAlias, preferVersionTemplate, null),
+		maxBump: mergeFromVersionTemplate("maxBump", parseBumpAlias, preferVersionTemplate, 0),
+		pinComponents: mergeFromVersionTemplate('pinComponents', identity, preferVersionTemplate, []),
 
 		defaultBump: map('defaultBump', parseBumpAlias, null),
 		doTag: validate("doTag", "true", isBoolString) === "true",
@@ -391,6 +402,8 @@ exports.test = function() {
 	assertEq(parseVersionTemplate(""), null)
 	assertEq(parseVersionTemplate("v1.x"),   { numComponents: 2, maxBump: 1, minBump: null, pinComponents: [1] })
 	assertEq(parseVersionTemplate("refs/heads/v1.x"), { numComponents: 2, maxBump: 1, minBump: null, pinComponents: [1] })
+	assertEq(parseVersionTemplate("refs/heads/1.x"), { numComponents: 2, maxBump: 1, minBump: null, pinComponents: [1] })
+	assertEq(parseVersionTemplate("refs/heads/1"), { numComponents: 1, maxBump: 1, minBump: null, pinComponents: [1] })
 	assertEq(parseVersionTemplate("refs/heads/master"), null)
 	assertEq(parseVersionTemplate("v1.2.x"), { numComponents: 3, maxBump: 2, minBump: null, pinComponents: [1,2] })
 	assertEq(parseVersionTemplate("v3.x.x"), { numComponents: 3, maxBump: 1, minBump: null, pinComponents: [3] })
@@ -400,7 +413,6 @@ exports.test = function() {
 	assertEq(parseVersionTemplate("vx.0.0"), { numComponents: 3, maxBump: 0, minBump: 0, pinComponents: [] })
 	assertThrows(parseVersionTemplate, "v3.x.2", "Invalid version template: v3.x.2")
 	assertThrows(parseVersionTemplate, "v3.x.2", "Invalid version template: v3.x.2")
-	assertThrows(parseVersionTemplate, "v1.2.3", "Invalid version template: v1.2.3")
 	assertThrows(parseVersionTemplate, "vx.0.x", "Invalid version template: vx.0.x")
 	assertThrows(parseVersionTemplate, "v1.a.x", "Invalid version component: a")
 
@@ -477,9 +489,12 @@ exports.test = function() {
 	assertEq(parseOpts({versionTemplate: 'vx.0'}).minBump, 0)
 	assertEq(parseOpts({versionTemplate: 'v1.x'}).maxBump, 1)
 	assertEq(parseOpts({versionTemplate: 'v1.x'}).pinComponents, [1])
-	assertThrows(parseOpts, {versionTemplate: 'v1.x', numComponents: 3}, 'numComponents (3) conflicts with versionTemplate (v1.x)')
-	assertThrows(parseOpts, {versionTemplate: 'v1.x.0', minBump: 2}, 'minBump (2) conflicts with versionTemplate (v1.x.0)')
-	assertThrows(parseOpts, {versionTemplate: 'v1.x.0', maxBump: 0}, 'maxBump (0) conflicts with versionTemplate (v1.x.0)')
+
+	// test precedence of passing both versionTemplate and explicit settings:
+	assertEq(parseOpts({versionTemplate: 'v2.x', numComponents: 3}).numComponents, 3, 'max')
+	assertEq(parseOpts({versionTemplate: 'v2.x.x', numComponents: 2}).numComponents, 3, 'max')
+	assertEq(parseOpts({versionTemplate: 'v2.x.x', minBump: 1}).minBump, null, 'prefer versionTemplate')
+	assertEq(parseOpts({versionTemplate: 'vx.x.x', maxBump: 1}).maxBump, 0, 'prefer versionTemplate')
 
 	assertEq(sh("echo", "1", "2"), "1 2")
 	assertThrows(sh, "cat", "/ does_not_exist", "Command failed: cat / does_not_exist")
