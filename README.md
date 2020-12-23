@@ -19,6 +19,34 @@ The process, in detail:
  - tag it (if `doTag`, default `true`)
  - push it (if `doPush`, default `true` except for Pull Requests)
 
+### versionTemplate:
+
+As of 2020-12, a `versionTemplate` option is allowed, which provides a convenient way to specify `numComponents`, `minBump`, `maxBump`, as well as validating that the chosen version matches the expected pattern.
+
+Examples include:
+
+`v1.2.x`: allow only patch increments
+`v1.x.x`: allow minor or patch increments
+`v1.x.0`: allow only minor increments
+`vx.x.x`: equivalent to `numComponents: 3`
+
+For convenience, this string is parsed quite generously:
+ - any leading `refs/heads/` is stripped off.
+ - if the value does not begin with a version component, it will be ignored
+
+This lets you pass in the branch name and have it work for both `master` and appropriately-named version branches, like so:
+
+```yaml
+- uses: timbertson/autorelease-tagger-action@v1
+  with:
+    numComponents: 3
+    versionTemplate: ${{ (github.event_name == 'pull_request' && github.base_ref) || github.ref }}
+```
+
+That will use the `base_ref` (destination branch) for a pull request, and the current branch for a push event.
+
+If you pass `numComponents` / `minBump` / `maxBump` as well as `versionTemplate`, they must be consistent (this is useful in the above case, where you don't always have a real versionTemplate)
+
 # Big thanks
 
 Inpired by the [Github Tag Bump](https://github.com/marketplace/actions/github-tag-bump) action, but with a few improvements:
