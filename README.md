@@ -16,6 +16,7 @@ The process, in detail:
    - apply the bump to make a new version:
      - if `releaseTrigger` is `auto`, a new release is always made
      - if `releaseTrigger` is `commit`, a new release is only made if the commit message contains `[release]` (or `[major-release]`, `[minor-release]`, `[patch-release]`)
+ - export the new version as an environment variable (if a key is provided in `exportEnv`)
  - tag it (if `doTag`, default `true`)
  - push it (if `doPush`, default `true` except for Pull Requests)
 

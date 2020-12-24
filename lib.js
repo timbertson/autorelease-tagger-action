@@ -296,6 +296,7 @@ let parseOpts = exports.parseOpts = function(env) {
 		defaultBump: map('defaultBump', parseBumpAlias, null),
 		doTag: validate("doTag", "true", isBoolString) === "true",
 		doPush: validate("doPush", "true", isBoolString) === "true",
+		exportEnv: map('exportEnv', identity, null),
 	}
 
 	if (opts.defaultBump == null) {
@@ -308,7 +309,7 @@ let parseOpts = exports.parseOpts = function(env) {
 	}
 	return opts
 }
-parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush', 'versionTemplate', 'pinComponents']
+parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush', 'versionTemplate', 'pinComponents', 'exportEnv']
 
 function getPRDestinationBranch() {
 	let prBranch = process.env['GITHUB_BASE_REF']
@@ -494,7 +495,8 @@ exports.test = function() {
 		pinComponents: [],
 		defaultBump:1,
 		doTag:true,
-		doPush:true
+		doPush:true,
+		exportEnv: null,
 	})
 
 	assertEq(parseOpts({
@@ -504,6 +506,7 @@ exports.test = function() {
 		minBump: 'minor',
 		doTag: 'true',
 		doPush: 'false',
+		exportEnv: null,
 	}), {
 		releaseTrigger: "commit",
 		numComponents: 3,
@@ -512,7 +515,8 @@ exports.test = function() {
 		pinComponents: [],
 		defaultBump: 0,
 		doTag: true,
-		doPush: false
+		doPush: false,
+		exportEnv: null,
 	})
 
 	assertEq(parseOpts({ minBump: 'patch' }).defaultBump, 1)
@@ -546,7 +550,6 @@ exports.test = function() {
 	}
 
 	// "integration test" of sorts, running with some real git repositories
-	let fs = require('fs')
 	let os = require('os')
 	let tempdir = fs.mkdtempSync(os.tmpdir() + '/autorelease-tagger-')
 	try {

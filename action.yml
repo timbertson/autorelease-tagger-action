@@ -8,10 +8,14 @@ inputs:
   minBump: { "description": 'TODO', "required": false }
   doTag: { "description": 'TODO', "required": false }
   doPush: { "description": 'TODO', "required": false }
+  versionTemplate: { "description": 'TODO', "required": false }
+  exportEnv: { "description": 'TODO', "required": false }
 
 outputs:
   tag:
     description: 'The new tag, only set if a tag is required'
+  tag:
+    description: 'The new version, only set if a tag is required'
 
 runs:
   using: 'node12'
