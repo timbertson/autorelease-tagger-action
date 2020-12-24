@@ -4,7 +4,7 @@ inputs:
   numComponents: { "description": 'TODO', "required": false }
   releaseTrigger: { "description": 'TODO', "required": false }
   defaultBump: { "description": 'TODO', "required": false }
-  maxBump: { "description": 'TODO', "required": false }
+  maxBump: { "description": 'deprecated', "required": false }
   minBump: { "description": 'TODO', "required": false }
   doTag: { "description": 'TODO', "required": false }
   doPush: { "description": 'TODO', "required": false }
