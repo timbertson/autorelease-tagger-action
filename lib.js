@@ -168,7 +168,9 @@ function parseGitDescribe(output) {
 }
 
 function commitLinesSince(tag) {
-	return sh('git', 'log', '--format=format:%s', tag + '..' + getBaseRef())
+	// if we're running on a PR, use the head ref (branch to be merged)
+	// instead of the HEAD (which is actually a merge of the PR against `master`)
+	return sh('git', 'log', '--format=format:%s', tag + '..' + getPRImplementationBranch())
 }
 
 let bumpAliases = ["major", "minor", "patch"]
@@ -218,9 +220,14 @@ function parseCommitLines(opts, commitLines) {
 
 	let doRelease = Boolean(opts.releaseTrigger == 'always' || labels.find((desc) => desc.release))
 	let bumps = labels.map((d) => d.bump).filter((x) => x != null).sort((a,b) => a - b)
+	let bump = opts.defaultBump
+	if (bumps.length > 0) {
+		bump = bumps[0]
+		console.log("Applying explicit bump: " + renderBumpIndex(bump))
+	}
 	return {
 		release: doRelease,
-		bump: bumps.length > 0 ? bumps[0] : opts.defaultBump
+		bump
 	}
 }
 
@@ -306,11 +313,14 @@ let parseOpts = exports.parseOpts = function(env) {
 }
 parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush', 'versionTemplate', 'pinComponents']
 
-function getBaseRef() {
-	// if we're running on a PR, use the head ref (branch to be merged)
-	// instead of the HEAD (which is actually a merge of the PR against `master`)
-	let prBranch = process.env['GITHUB_HEAD_REF']
+function getPRDestinationBranch() {
+	let prBranch = process.env['GITHUB_BASE_REF']
 	return prBranch ? 'origin/'+prBranch : 'HEAD'
+}
+
+function getPRImplementationBranch() {
+	let prBranch = process.env['GITHUB_HEAD_REF']
+	return prBranch ? prBranch : 'HEAD'
 }
 
 let getNextVersion = exports.getNextVersion = function(opts) {
@@ -319,7 +329,31 @@ let getNextVersion = exports.getNextVersion = function(opts) {
 		fetchCmd.push('--unshallow')
 	}
 	sh.apply(null, fetchCmd)
-	let describeOutput = sh('git', 'describe', '--tags', '--match', 'v*', '--always', '--long', 'HEAD')
+
+	// For a PR, we find the last tag reachable from the base ref (the branch we're merging into),
+	// rather than HEAD. Github creates the HEAD merge commit when you create / push a PR,
+	// so it won't always contain everything in the target branch:
+	//
+	//   * master (v1.2.3)
+	//   |
+	//   |  * HEAD (PR auto merge commit)
+	//   |/ |
+	//   |  * PR: my cool feature
+	//   | /
+	//   * master^ (v1.2.2)
+	//   |
+	//   (...)
+	//
+	// If we just used HEAD, we'd pick a conflicting `v1.2.3` for this PR and fail,
+	// even though once merged it would correctly pick v1.2.4
+	//
+	// In the case where you merge a version branch into master (i.e. both have version tags),
+	// the PR will naturally only consider the master branch. Once merged, `--first-parent`
+	// will ensure that `git describe` only searches the mainline history, not the version branch.
+
+	let tagSearchRef = getPRDestinationBranch()
+
+	let describeOutput = sh('git', 'describe', '--tags', '--first-parent', '--match', 'v*', '--always', '--long', tagSearchRef)
 	console.log("Git describe output: "+ describeOutput)
 	let current = parseGitDescribe(describeOutput)
 	if (current == null) {
@@ -359,6 +393,9 @@ exports.main = function() {
 
 exports.test = function() {
 	function assertEq(a,b, ctx) {
+		if(b === undefined) {
+			throw new Error("Expected value is undefined")
+		}
 		let aDesc = JSON.stringify(a)
 		let bDesc = JSON.stringify(b)
 		if(aDesc !== bDesc) {
@@ -498,4 +535,79 @@ exports.test = function() {
 
 	assertEq(sh("echo", "1", "2"), "1 2")
 	assertThrows(sh, "cat", "/ does_not_exist", "Command failed: cat / does_not_exist")
+
+	function getAndApply(opts) {
+		let version = getNextVersion(opts)
+		applyVersion(opts, version)
+		return version
+	}
+
+	function dumpState() {
+		console.log(sh('git', 'log', '--color', '--graph',
+			'--pretty=format:%C(yellow)%h%Creset -%C(bold blue)%d%Creset %s %Cgreen(%cr) %C(bold)<%an>%Creset',
+			'--abbrev-commit', '--date=relative', '--date-order', 'HEAD'))
+	}
+
+	// "integration test" of sorts, running with some real git repositories
+	let fs = require('fs')
+	let os = require('os')
+	let tempdir = fs.mkdtempSync(os.tmpdir() + '/autorelease-tagger-')
+	try {
+		console.log('tempdir: ' + tempdir)
+		let origin = tempdir + '/origin'
+		fs.mkdirSync(origin)
+		process.chdir(origin)
+		sh('git', 'init')
+		function commit(msg) {
+			sh('git', 'commit', '--allow-empty', '-m', msg)
+		}
+		commit('initial')
+		let opts = {...defaultOpts, doPush: false}
+
+		assertEq(getAndApply(opts), [0,0,0])
+
+		commit('work')
+		assertEq(getAndApply(opts), [0,1,0])
+
+		commit('[major] work')
+		assertEq(getAndApply(opts), [1,0,0])
+		// ensure v1.0.0 is further away in the history than the v0.1.1
+		// we're going to make on a version branch
+		commit('more work')
+		commit('more work')
+		commit('more work')
+
+
+		// now test a version branch
+		let versionBranch = 'v0.1.x'
+		sh('git', 'checkout', '-b', versionBranch, 'v0.1.0')
+		let versionOpts = parseOpts({versionTemplate: versionBranch, doPush: 'false' })
+
+		commit('v0.1.1')
+		assertEq(getAndApply(versionOpts), [0,1,1])
+
+		// emulate a merged PR from a version branch
+		sh('git', 'checkout', 'master')
+		sh('git', 'merge', '--no-edit', versionBranch)
+		let mergeCommit = sh('git', 'rev-parse', 'HEAD')
+
+		assertEq(getAndApply(opts), [1,1,0], 'next version should be based on first parent')
+
+		let clone = tempdir + '/clone'
+		sh('git', 'clone', origin, clone)
+		process.chdir(clone)
+		sh('git', 'checkout', '-b', versionBranch, 'origin/' + versionBranch)
+		commit('version work')
+
+		// now emulate a PR against master from the version branch (i.e. pretend HEAD is an auto merge commit for a PR)
+		sh('git', 'checkout', '-b', 'pr-merge')
+		sh('git', 'merge', '--no-edit', 'origin/master')
+		process.env['GITHUB_BASE_REF'] = 'master' // has v1.1.0, even though it's not in HEAD
+		process.env['GITHUB_HEAD_REF'] = versionBranch // has v0.1.0 but we should ignore this
+		// dumpState()
+		assertEq(getAndApply(opts), [1,2,0], 'next version should come from PR target')
+
+	} finally {
+		sh('rm', '-rf', tempdir)
+	}
 }
