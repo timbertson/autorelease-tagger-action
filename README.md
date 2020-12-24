@@ -45,7 +45,7 @@ This lets you pass in the branch name and have it work for both `master` and app
   with:
     numComponents: 3
     minBump: minor
-    versionTemplate: ${{ (github.event_name == 'pull_request' && github.base_ref) || github.ref }}
+    versionTemplate: ${{ github.base_ref || github.ref }}
 ```
 
 That will use the `base_ref` (destination branch) for a pull request, and the current branch for a push event.
