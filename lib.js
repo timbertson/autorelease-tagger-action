@@ -179,9 +179,6 @@ function renderBumpIndex(i) {
 }
 
 function parseBumpAlias(alias) {
-	if (typeof(alias) == 'number') {
-		return alias
-	}
 	switch (alias) {
 		case "major": return 0
 		case "minor": return 1
@@ -518,9 +515,9 @@ exports.test = function() {
 		doPush: false
 	})
 
-	assertEq(parseOpts({ minBump: 2 }).defaultBump, 1)
-	assertEq(parseOpts({ minBump: 0 }).defaultBump, 0)
-	assertEq(parseOpts({ maxBump: 2 }).defaultBump, 2)
+	assertEq(parseOpts({ minBump: 'patch' }).defaultBump, 1)
+	assertEq(parseOpts({ minBump: 'major' }).defaultBump, 0)
+	assertEq(parseOpts({ maxBump: 'patch' }).defaultBump, 2)
 
 	assertEq(parseOpts({versionTemplate: 'v2.x'}).numComponents, 2)
 	assertEq(parseOpts({versionTemplate: 'vx.0'}).minBump, 0)
@@ -530,8 +527,8 @@ exports.test = function() {
 	// test precedence of passing both versionTemplate and explicit settings:
 	assertEq(parseOpts({versionTemplate: 'v2.x', numComponents: 3}).numComponents, 3, 'max')
 	assertEq(parseOpts({versionTemplate: 'v2.x.x', numComponents: 2}).numComponents, 3, 'max')
-	assertEq(parseOpts({versionTemplate: 'v2.x.x', minBump: 1}).minBump, null, 'prefer versionTemplate')
-	assertEq(parseOpts({versionTemplate: 'vx.x.x', maxBump: 1}).maxBump, 0, 'prefer versionTemplate')
+	assertEq(parseOpts({versionTemplate: 'v2.x.x', minBump: 'minor'}).minBump, null, 'prefer versionTemplate')
+	assertEq(parseOpts({versionTemplate: 'vx.x.x', maxBump: 'minor'}).maxBump, 0, 'prefer versionTemplate')
 
 	assertEq(sh("echo", "1", "2"), "1 2")
 	assertThrows(sh, "cat", "/ does_not_exist", "Command failed: cat / does_not_exist")
