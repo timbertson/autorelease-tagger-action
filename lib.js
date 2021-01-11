@@ -170,7 +170,7 @@ function parseGitDescribe(output) {
 function commitLinesSince(tag) {
 	// if we're running on a PR, use the head ref (branch to be merged)
 	// instead of the HEAD (which is actually a merge of the PR against `master`)
-	return sh('git', 'log', '--format=format:%s', tag + '..' + getPRImplementationBranch())
+	return sh('git', 'log', '--format=format:%s', tag + '..' + getPRImplementationBranch(), '--')
 }
 
 let bumpAliases = ["major", "minor", "patch"]
@@ -318,7 +318,7 @@ function getPRDestinationBranch() {
 
 function getPRImplementationBranch() {
 	let prBranch = process.env['GITHUB_HEAD_REF']
-	return prBranch ? prBranch : 'HEAD'
+	return prBranch ? 'origin/'+prBranch : 'HEAD'
 }
 
 let getNextVersion = exports.getNextVersion = function(opts) {
@@ -539,6 +539,9 @@ exports.test = function() {
 
 	function getAndApply(opts) {
 		let version = getNextVersion(opts)
+		if (version == null) {
+			throw new Error("New version was not generated")
+		}
 		applyVersion(opts, version)
 		return version
 	}
@@ -593,15 +596,17 @@ exports.test = function() {
 
 		assertEq(getAndApply(opts), [1,1,0], 'next version should be based on first parent')
 
+		// emulate a PR against master from the version branch
+		sh('git', 'checkout', versionBranch)
+		commit('version work')
+
 		let clone = tempdir + '/clone'
 		sh('git', 'clone', origin, clone)
 		process.chdir(clone)
-		sh('git', 'checkout', '-b', versionBranch, 'origin/' + versionBranch)
-		commit('version work')
 
 		// now emulate a PR against master from the version branch (i.e. pretend HEAD is an auto merge commit for a PR)
 		sh('git', 'checkout', '-b', 'pr-merge')
-		sh('git', 'merge', '--no-edit', 'origin/master')
+		sh('git', 'merge', '--no-edit', 'origin/'+versionBranch)
 		process.env['GITHUB_BASE_REF'] = 'master' // has v1.1.0, even though it's not in HEAD
 		process.env['GITHUB_HEAD_REF'] = versionBranch // has v0.1.0 but we should ignore this
 		// dumpState()
