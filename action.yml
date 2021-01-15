@@ -1,15 +1,37 @@
 name: 'Autorelease tagger'
 description: 'Create version tags based on git tags and commits'
 inputs:
-  numComponents: { "description": 'TODO', "required": false }
-  releaseTrigger: { "description": 'TODO', "required": false }
-  defaultBump: { "description": 'TODO', "required": false }
-  maxBump: { "description": 'deprecated', "required": false }
-  minBump: { "description": 'TODO', "required": false }
-  doTag: { "description": 'TODO', "required": false }
-  doPush: { "description": 'TODO', "required": false }
-  versionTemplate: { "description": 'TODO', "required": false }
-  exportEnv: { "description": 'TODO', "required": false }
+  numComponents:
+    description: Number of version components (e.g. semver uses `3`)
+    required: false
+  releaseTrigger:
+    description: `auto` (default): every commit is a new release. `commit`: only release when the commit message includes a release instruction
+    required: false
+  defaultBump:
+    description: Default bump to apply when there's no specific instruction in commit messages (`major`|`minor`|`patch`). Default: `minor`.
+    required: false
+  maxBump:
+    description: deprecated
+    required: false
+  minBump:
+    description: Minimum bump to apply (e.g. setting to `minor` enforces this action won't allow a patch release)
+    required: false
+  versionTemplate:
+    description: |-
+      Template for fine-tuning the version generation. This is designed to be passed the base branch name.
+      `refs/heads/` prefix is stripped, if present. Any string which doesn't look like a version template will be ignored.
+      If a version template is given (e.g. `v1.2.x`), that will override `minBump` / `maxBump` / `numComponents`, and additionally
+      ensure the created version starts with `v1.2.`
+  doTag:
+    description: Run `git tag`
+    required: false
+  doPush:
+    description: Run `git push` on the created tag
+    required: false
+    required: false
+  exportEnv:
+    description: Export the version to an environment variable with the given name.
+    required: false
 
 outputs:
   tag:
