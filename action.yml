@@ -2,19 +2,23 @@ name: 'Autorelease tagger'
 description: 'Create version tags based on git tags and commits'
 inputs:
   numComponents:
-    description: Number of version components (e.g. semver uses `3`)
+    description: |-
+      Number of version components (e.g. semver uses `3`)
     required: false
   releaseTrigger:
-    description: `auto` (default): every commit is a new release. `commit`: only release when the commit message includes a release instruction
+    description: |-
+      `auto` (default): every commit is a new release. `commit`: only release when the commit message includes a release instruction
     required: false
   defaultBump:
-    description: Default bump to apply when there's no specific instruction in commit messages (`major`|`minor`|`patch`). Default: `minor`.
+    description: |-
+      Default bump to apply when there's no specific instruction in commit messages (`major`|`minor`|`patch`). Default: `minor`.
     required: false
   maxBump:
     description: deprecated
     required: false
   minBump:
-    description: Minimum bump to apply (e.g. setting to `minor` enforces this action won't allow a patch release)
+    description: |-
+      Minimum bump to apply (e.g. setting to `minor` enforces this action won't allow a patch release)
     required: false
   versionTemplate:
     description: |-
@@ -23,14 +27,16 @@ inputs:
       If a version template is given (e.g. `v1.2.x`), that will override `minBump` / `maxBump` / `numComponents`, and additionally
       ensure the created version starts with `v1.2.`
   doTag:
-    description: Run `git tag`
+    description: |-
+      Run `git tag`
     required: false
   doPush:
-    description: Run `git push` on the created tag
-    required: false
+    description: |-
+      Run `git push` on the created tag
     required: false
   exportEnv:
-    description: Export the version to an environment variable with the given name.
+    description: |-
+      Export the version to an environment variable with the given name.
     required: false
 
 outputs:
