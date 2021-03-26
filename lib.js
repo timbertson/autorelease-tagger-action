@@ -58,11 +58,9 @@ const applyBump = (function() {
 	return (function applyBump(opts, current, action) {
 		let bumpIdx = action.bump
 
-		// NOTE: we do this initial validation before applying pinComponents.
-		// If you specify maxBump=minor and the current version is
 		if (opts.minBump != null && bumpIdx > opts.minBump) {
 			// requested e.g. a patch bump, but minBump is minor. That's fine, just promote it
-			bumpIdx = minBump
+			bumpIdx = opts.minBump
 			console.log("Note: forcing "+renderBumpIndex(bumpIdx)+" because of minBump")
 		}
 		if (bumpIdx < opts.maxBump) {
@@ -474,6 +472,7 @@ exports.test = function() {
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 0 }), [2,0,0])
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 1 }), [1,3,0])
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 2 }), [1,2,4])
+	assertEq(applyBump({ ...defaultOpts, minBump: 0 }, [1,2,3], { bump: 2 }), [2,0,0])
 	assertThrows(applyBump, defaultOpts, [1,2,3], { bump: 3 }, "Tried to bump component [index 3] but there are only 3 components")
 	assertEq(applyBump({...defaultOpts, numComponents: 4 }, [1,2], { bump: 3 }), [1,2,0,1])
 	assertThrows(applyBump, {...defaultOpts, maxBump: 1}, [1,2,3], { bump: 0 }, "Requested bump (major) is greater than maxBump (minor)")
