@@ -19,7 +19,7 @@ function main() {
 			let renderedVersion = lib.renderVersion(nextVersion)
 			core.setOutput('version', renderedVersion)
 			if (opts.exportEnv !== null) {
-				core.setEnv(opts.exportEnv, renderedVersion)
+				core.exportVariable(opts.exportEnv, renderedVersion)
 			}
 		} else {
 			core.info("No version release triggered")
