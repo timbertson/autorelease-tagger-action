@@ -32,7 +32,7 @@ function extendTo(length, array) {
 }
 
 function initialVersion(opts) {
-	return extendTo(opts.numComponents, [])
+	return extendTo(opts.numComponents, opts.pinComponents)
 }
 
 const applyBump = (function() {
@@ -469,6 +469,9 @@ exports.test = function() {
 	assertParseCommitLines(["[minor]", "[patch]"], { release: true, bump: 1 })
 	assertParseCommitLines(['[ma','jor]'], { release: true, bump: 1 })
 
+	assertEq(initialVersion({...defaultOpts, numComponents: 2}), [0,0])
+	assertEq(initialVersion({...defaultOpts, pinComponents: [2,3,0], numComponents: 4}), [2,3,0,0])
+
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 0 }), [2,0,0])
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 1 }), [1,3,0])
 	assertEq(applyBump(defaultOpts, [1,2,3], { bump: 2 }), [1,2,4])
@@ -483,6 +486,7 @@ exports.test = function() {
 	assertEq(applyBump({...defaultOpts, pinComponents: [2, 8]}, [1,2,3], { bump: 2 }), [2,8,0])
 	assertEq(applyBump({...defaultOpts, pinComponents: [1, 2]}, [1,2,3], { bump: 2 }), [1,2,4])
 	assertEq(applyBump({...defaultOpts, pinComponents: [1, 3]}, [1,2,3], { bump: 2 }), [1,3,0])
+	assertEq(applyBump({...defaultOpts, pinComponents: [1, 3], numComponents: 4}, [0,0,0], { bump: 3 }), [1, 3, 0, 0])
 	assertThrows(applyBump, {...defaultOpts, pinComponents: [1,1], versionTemplate: "v1.1.x" }, [1,2,3], { bump: 2 }, "New version (v1.2.4) is incompatible with versionTemplate (v1.1.x)")
 	assertThrows(applyBump, {...defaultOpts, pinComponents: [1], versionTemplate: "v1.x.x" }, [1,2,3], { bump: 0 }, "New version (v2.0.0) is incompatible with versionTemplate (v1.x.x)")
 
