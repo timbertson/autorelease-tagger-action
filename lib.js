@@ -297,14 +297,21 @@ let parseOpts = exports.parseOpts = function(env) {
 		exportEnv: map('exportEnv', identity, null),
 	}
 
-	if (opts.defaultBump == null) {
-		let minDefaultBump = opts.minBump == null ? opts.numComponents : opts.minBump
-		let maxDefaultBump = opts.maxBump == null ? 0 : opts.maxBump
-		// Aim for 1, but cap to the range defined by minDefault / maxDefault
-		// Due to the visual (left->right) indexes we want an index <= minDefaultBump
-		// and >= maxDefaultBump
-		opts.defaultBump = Math.min(Math.max(1, maxDefaultBump), minDefaultBump)
+	// Aim for defaultBump (or 1), but cap to the range defined by minDefault / maxDefault
+	// Due to the visual (left->right) indexes we want an index <= minDefaultBump
+	// and >= maxDefaultBump
+	let targetDefaultBump = opts.defaultBump == null ? 1 : opts.defaultBump;
+	let minDefaultBump = opts.minBump == null ? opts.numComponents : opts.minBump
+	let maxDefaultBump = opts.maxBump == null ? 0 : opts.maxBump
+	opts.defaultBump = Math.min(Math.max(targetDefaultBump, maxDefaultBump), minDefaultBump)
+	if (opts.defaultBump != null && opts.defaultBump != targetDefaultBump) {
+		console.log("Using defaultBump: "
+			+ renderBumpIndex(opts.defaultBump)
+			+ " over configured value ("
+			+ renderBumpIndex(targetDefaultBump)
+			+ ") to fit minBump / maxBump")
 	}
+
 	return opts
 }
 parseOpts.keys = ['numComponents', 'releaseTrigger', 'defaultBump', 'maxBump', 'minBump', 'doTag', 'doPush', 'versionTemplate', 'pinComponents', 'exportEnv']
@@ -395,7 +402,7 @@ exports.test = function() {
 		let aDesc = JSON.stringify(a)
 		let bDesc = JSON.stringify(b)
 		if(aDesc !== bDesc) {
-			let desc = "Expected "+ bDesc + ", got "+ aDesc
+			let desc = "Expected:\n  " + bDesc + ", got\n  "+ aDesc
 			if (ctx) desc += " ("+ctx+")"
 			throw new Error(desc)
 		}
@@ -505,16 +512,16 @@ exports.test = function() {
 	assertEq(parseOpts({
 		releaseTrigger: 'commit',
 		defaultBump: 'major',
-		maxBump: 'patch',
-		minBump: 'minor',
+		maxBump: 'major',
+		minBump: 'patch',
 		doTag: 'true',
 		doPush: 'false',
 		exportEnv: null,
 	}), {
 		releaseTrigger: "commit",
 		numComponents: 3,
-		minBump: 1,
-		maxBump: 2,
+		minBump: 2,
+		maxBump: 0,
 		pinComponents: [],
 		defaultBump: 0,
 		doTag: true,
@@ -526,10 +533,16 @@ exports.test = function() {
 	assertEq(parseOpts({ minBump: 'major' }).defaultBump, 0)
 	assertEq(parseOpts({ maxBump: 'patch' }).defaultBump, 2)
 
+	assertEq(parseOpts({ maxBump: 'patch', defaultBump: 'major' }).defaultBump, 2)
+	assertEq(parseOpts({ minBump: 'minor', defaultBump: 'patch' }).defaultBump, 1)
+	assertEq(parseOpts({ maxBump: 'major', minBump: 'minor', defaultBump: 'patch' }).defaultBump, 1)
+	assertEq(parseOpts({ maxBump: 'minor', minBump: 'patch', defaultBump: 'major' }).defaultBump, 1)
+
 	assertEq(parseOpts({versionTemplate: 'v2.x'}).numComponents, 2)
 	assertEq(parseOpts({versionTemplate: 'vx.0'}).minBump, 0)
 	assertEq(parseOpts({versionTemplate: 'v1.x'}).maxBump, 1)
 	assertEq(parseOpts({versionTemplate: 'v1.x'}).pinComponents, [1])
+	assertEq(parseOpts({versionTemplate: 'v1.2.x', defaultBump: 'major'}).defaultBump, 2)
 
 	// test precedence of passing both versionTemplate and explicit settings:
 	assertEq(parseOpts({versionTemplate: 'v2.x', numComponents: 3}).numComponents, 3, 'max')
